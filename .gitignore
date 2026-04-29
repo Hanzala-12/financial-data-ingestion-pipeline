@@ -1,0 +1,14 @@
+# Environment variables
+.env
+
+# Data files (tracked by DVC)
+/data/raw/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# DVC
+/data/raw/.dvc/
