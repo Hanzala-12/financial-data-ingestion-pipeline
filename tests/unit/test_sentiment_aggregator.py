@@ -34,3 +34,35 @@ def test_aggregate_sentiment_hourly():
     assert hour_11["neg_count"] == 0
     assert hour_11["text_count"] == 1
     assert hour_11["net_sentiment"] == 0.0
+
+def test_aggregate_sentiment_shape_and_index():
+    df = pd.DataFrame(
+        {
+            "timestamp": [
+                "2023-05-10 14:15:00",
+                "2023-05-10 14:45:00",
+                "2023-05-10 15:05:00",
+            ],
+            "ticker": ["MSFT", "MSFT", "TSLA"],
+            "label": ["positive", "positive", "negative"],
+            "score": [0.6, 0.7, -0.8],
+            "source": ["reddit", "news", "twitter"],
+        }
+    )
+    out = aggregate_sentiment(df)
+    
+    # 2 hours for MSFT + 1 hour for TSLA
+    assert out.shape[0] == 2 
+    
+    expected_cols = [
+        "hour",
+        "ticker",
+        "net_sentiment",
+        "mean_score",
+        "pos_count",
+        "neg_count",
+        "text_count",
+    ]
+    for col in expected_cols:
+        assert col in out.columns
+

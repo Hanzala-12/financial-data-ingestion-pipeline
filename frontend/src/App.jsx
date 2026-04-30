@@ -2,6 +2,7 @@ import { NavLink, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home.jsx";
 import Sentiment from "./pages/Sentiment.jsx";
 import Models from "./pages/Models.jsx";
+import Analyzer from "./pages/Analyzer.jsx";
 
 const navLinkClass = ({ isActive }) =>
   `nav-link ${isActive ? "nav-link-active" : "nav-link-idle"}`;
@@ -19,8 +20,11 @@ export default function App() {
             <NavLink to="/" className={navLinkClass}>
               Prediction
             </NavLink>
+            <NavLink to="/analyzer" className={navLinkClass}>
+              Analyzer
+            </NavLink>
             <NavLink to="/sentiment" className={navLinkClass}>
-              Sentiment
+              History
             </NavLink>
             <NavLink to="/models" className={navLinkClass}>
               Models
@@ -32,6 +36,7 @@ export default function App() {
       <main className="mx-auto w-full max-w-6xl px-6 py-10">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/analyzer" element={<Analyzer />} />
           <Route path="/sentiment" element={<Sentiment />} />
           <Route path="/models" element={<Models />} />
         </Routes>
