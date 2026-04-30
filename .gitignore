@@ -12,3 +12,7 @@ __pycache__/
 
 # DVC
 /data/raw/.dvc/
+
+venv/
+
+.coverage
