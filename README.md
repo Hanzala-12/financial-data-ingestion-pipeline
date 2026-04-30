@@ -1,8 +1,8 @@
 # Financial Data Ingestion Pipeline
 
-A production-ready, automated data ingestion pipeline for financial market analysis. This system collects OHLCV market data, business news, and social media sentiment from multiple sources, storing everything in efficient Parquet format with DVC version control for reproducibility.
+A production-ready, automated data ingestion pipeline for financial market analysis. The system collects OHLCV market data, business news, and social media sentiment from multiple sources, stores everything in efficient Parquet format with DVC version control, and includes a binary market direction modeling workflow (RNN/LSTM/GRU) with MLflow tracking.
 
-## 🎯 Features
+## Features
 
 - **Multi-Source Data Collection**: Automated ingestion from Yahoo Finance, Reuters RSS, Reddit, and Twitter/X
 - **Idempotent Execution**: Timestamp-based file naming prevents data duplication
@@ -12,14 +12,14 @@ A production-ready, automated data ingestion pipeline for financial market analy
 - **Extensive Testing**: 85+ unit and integration tests with 96% code coverage
 - **Sentiment Analysis**: Optional sentiment processing pipeline with VADER and FinBERT
 
-## 📋 Prerequisites
+## Prerequisites
 
 - **Python 3.8+**
 - **pip** (Python package manager)
 - **DVC** (Data Version Control)
 - **Git** (for version control)
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Clone the Repository
 
@@ -65,7 +65,7 @@ cp .env.example .env
 python src/ingestion/run_all.py
 ```
 
-## 📊 Data Sources
+## Data Sources
 
 ### Yahoo Finance
 - **Data**: Hourly OHLCV (Open, High, Low, Close, Volume) data
@@ -90,18 +90,19 @@ python src/ingestion/run_all.py
 - **Limit**: 100 tweets per cashtag
 - **Authentication**: None required (uses snscrape)
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 financial-data-ingestion-pipeline/
 ├── .kiro/
 │   └── specs/                    # Specification documents
 ├── data/
-│   └── raw/                      # Raw ingested data (DVC tracked)
-│       ├── yahoo/                # Yahoo Finance OHLCV data
-│       ├── reuters/              # Reuters news articles
-│       ├── reddit/               # Reddit posts
-│       └── twitter/              # Twitter cashtag mentions
+│   ├── raw/                      # Raw ingested data (DVC tracked)
+│   │   ├── yahoo/                # Yahoo Finance OHLCV data
+│   │   ├── reuters/              # Reuters news articles
+│   │   ├── reddit/               # Reddit posts
+│   │   └── twitter/              # Twitter cashtag mentions
+│   └── processed/                # Processed datasets (sentiment output)
 ├── src/
 │   ├── ingestion/                # Ingestion modules
 │   │   ├── __init__.py
@@ -111,7 +112,11 @@ financial-data-ingestion-pipeline/
 │   │   ├── reddit_ingest.py      # Reddit ingestor
 │   │   ├── twitter_ingest.py     # Twitter ingestor
 │   │   └── run_all.py            # Pipeline orchestrator
-│   └── sentiment/                # Sentiment analysis (optional)
+│   ├── sentiment/                # Sentiment analysis (optional)
+│   └── market_direction/         # Market direction modeling
+│       ├── __init__.py
+│       ├── pipeline.py
+│       └── run_training.py
 ├── tests/
 │   ├── unit/                     # Unit tests (79 tests)
 │   └── integration/              # Integration tests (6 tests)
@@ -122,7 +127,7 @@ financial-data-ingestion-pipeline/
 └── README.md                     # This file
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -150,7 +155,7 @@ SENTIMENT_LOG_LEVEL=INFO
 4. Fill in the required fields
 5. Copy the client ID and secret to your `.env` file
 
-## 📈 Usage
+## Usage
 
 ### Running Individual Ingestors
 
@@ -188,7 +193,26 @@ python -c "from src.sentiment.processor import run_sentiment_pipeline; run_senti
 
 Output: `data/processed/sentiment_hourly.parquet`
 
-## 🧪 Testing
+### Market Direction Modeling
+
+This workflow trains RNN, LSTM, and GRU models to predict next-hour return direction using merged price and sentiment features.
+
+```bash
+python -m src.market_direction.run_training
+```
+
+Defaults:
+- Price data in `data/raw/yahoo/` (parquet files)
+- Sentiment data in `data/processed/sentiment_hourly.parquet`
+
+Outputs:
+- `models/` with best checkpoints per model
+- `artifacts/` with test predictions and metrics per model
+- `mlruns/` for MLflow logs (unless `--disable-mlflow` is set)
+
+The comparison table reports Accuracy and F1. The only optional item is RMSE, which is listed as `N/A` because no regression head is included.
+
+## Testing
 
 ### Run All Tests
 
@@ -214,7 +238,7 @@ pytest tests/integration/
 pytest --cov=src/ingestion tests/
 ```
 
-## 📦 DVC Workflow
+## DVC Workflow
 
 ### Initialize DVC (already done)
 
@@ -246,7 +270,7 @@ dvc push
 dvc repro
 ```
 
-## 📊 Data Schemas
+## Data Schemas
 
 ### Yahoo Finance (`data/raw/yahoo/{ticker}_{YYYYMMDD_HH}.parquet`)
 
@@ -305,7 +329,13 @@ dvc repro
 | `neg_count` | int | Negative mentions |
 | `text_count` | int | Total mentions |
 
-## 🔍 Troubleshooting
+### Market Direction Artifacts (generated)
+
+- `models/rnn_best.pt`, `models/lstm_best.pt`, `models/gru_best.pt`: best checkpoints
+- `artifacts/{model}_test_predictions.csv`: test predictions and labels
+- `artifacts/{model}_test_metrics.json`: test metrics for each model
+
+## Troubleshooting
 
 ### Missing Credentials
 
@@ -353,7 +383,7 @@ cd financial-data-ingestion-pipeline
 pip install -r requirements.txt
 ```
 
-## 🛠️ Development
+## Development
 
 ### Code Style
 
@@ -376,19 +406,19 @@ This project follows PEP 8 style guidelines. All code includes:
 5. Update `run_all.py` to include the new ingestor
 6. Update this README with the new data source
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📧 Contact
+## Contact
 
 For questions or support, please open an issue on GitHub.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - **yfinance**: Yahoo Finance API wrapper
 - **feedparser**: RSS feed parsing
@@ -399,5 +429,3 @@ For questions or support, please open an issue on GitHub.
 - **pyarrow**: Parquet file format support
 
 ---
-
-**Built with ❤️ for financial data analysis**
