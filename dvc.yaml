@@ -1,0 +1,11 @@
+# DVC pipeline configuration
+# Note: data/raw/ is tracked separately via dvc add
+# stages:
+#   ingest:
+#     cmd: python src/ingestion/run_all.py
+#     deps:
+#       - src/ingestion/
+#     outs:
+#       - data/raw/:
+#           cache: true
+#           persist: false

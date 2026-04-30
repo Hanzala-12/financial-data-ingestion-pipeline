@@ -154,6 +154,9 @@ class TestSaveToParquet:
             
             # Check that compression is snappy
             assert parquet_file.metadata.row_group(0).column(0).compression == 'SNAPPY'
+            
+            # Close the file handle to avoid Windows permission issues
+            parquet_file.close()
     
     def test_creates_directory_if_missing(self):
         """Test that save_to_parquet creates the directory if it doesn't exist."""
@@ -174,12 +177,11 @@ class TestSaveToParquet:
         """Test that save_to_parquet handles write failures gracefully."""
         df = pd.DataFrame({'col1': [1, 2, 3]})
         
-        # Use an invalid path that will cause write to fail
-        invalid_path = "/invalid/path/that/does/not/exist/test.parquet"
-        
-        # Should raise an exception
-        with pytest.raises(Exception):
-            save_to_parquet(df, invalid_path)
+        # Mock to_parquet to raise an exception
+        with patch.object(pd.DataFrame, 'to_parquet', side_effect=Exception("Write failed")):
+            # Should raise an exception
+            with pytest.raises(Exception):
+                save_to_parquet(df, "test.parquet")
     
     def test_logs_success_message(self, caplog):
         """Test that save_to_parquet logs a success message."""
@@ -197,13 +199,14 @@ class TestSaveToParquet:
     def test_logs_error_on_failure(self, caplog):
         """Test that save_to_parquet logs an error on failure."""
         df = pd.DataFrame({'col1': [1, 2, 3]})
-        invalid_path = "/invalid/path/test.parquet"
         
-        with caplog.at_level(logging.ERROR):
-            try:
-                save_to_parquet(df, invalid_path)
-            except Exception:
-                pass  # Expected to fail
+        # Mock to_parquet to raise an exception
+        with patch.object(pd.DataFrame, 'to_parquet', side_effect=Exception("Write failed")):
+            with caplog.at_level(logging.ERROR):
+                try:
+                    save_to_parquet(df, "test.parquet")
+                except Exception:
+                    pass  # Expected to fail
         
         # Check that error was logged
         assert any("Failed to save data" in record.message for record in caplog.records)
