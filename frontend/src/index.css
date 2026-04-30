@@ -1,0 +1,93 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f5f4f0;
+  --ink: #1b1a17;
+  --muted: #5f5b57;
+  --accent: #0f766e;
+  --accent-soft: #dff4f1;
+  --panel: rgba(255, 255, 255, 0.7);
+}
+
+@layer base {
+  body {
+    font-family: "Space Grotesk", sans-serif;
+    background: radial-gradient(circle at top, #fdf7e8, #f5f4f0 55%, #efece4 100%);
+    color: var(--ink);
+    min-height: 100vh;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer components {
+  .nav-link {
+    @apply rounded-full border border-transparent px-4 py-2 transition;
+  }
+
+  .nav-link-idle {
+    @apply text-muted hover:border-white/80 hover:bg-white/70;
+  }
+
+  .nav-link-active {
+    @apply border-ink bg-white text-ink;
+  }
+
+  .card {
+    @apply rounded-2xl border border-white/70 bg-[var(--panel)] p-6 shadow-sm backdrop-blur;
+  }
+
+  .label {
+    @apply text-xs uppercase tracking-[0.2em] text-muted;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-white/80 bg-white/80 px-4 py-3 text-sm text-ink shadow-sm outline-none transition focus:border-ink;
+  }
+
+  .button {
+    @apply rounded-xl bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-black;
+  }
+}
+
+@layer utilities {
+  .text-ink {
+    color: var(--ink);
+  }
+
+  .text-muted {
+    color: var(--muted);
+  }
+
+  .text-accent {
+    color: var(--accent);
+  }
+
+  .bg-accent-soft {
+    background-color: var(--accent-soft);
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.6s ease both;
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}

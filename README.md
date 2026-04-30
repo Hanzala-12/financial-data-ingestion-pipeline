@@ -429,3 +429,12 @@ For questions or support, please open an issue on GitHub.
 - **pyarrow**: Parquet file format support
 
 ---
+
+## Full-Stack Serving Application
+
+This repository now includes a full-stack web application to serve and visualize the models:
+
+### Backend (FastAPI)
+- **Location**: \src/api/\`n- **Run**: \uvicorn src.api.main:app --reload\`n- **Endpoints**: \/predict/{ticker}\, \/sentiment/{ticker}\, \/models\`n
+### Frontend (React + Vite + Tailwind)
+- **Location**: \rontend/\`n- **Run**: \cd frontend && npm install && npm run dev\`n- **Features**: Sentiment charting, Model Leaderboard, Price Direction Predictions.

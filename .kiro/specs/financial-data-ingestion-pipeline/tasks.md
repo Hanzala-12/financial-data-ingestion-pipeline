@@ -1,97 +1,180 @@
-Project: Binary Market Direction Prediction (PyTorch)
-🔹 1. Data Preparation
- Load price_df and sentiment_ts
- Merge datasets on ["hour", "ticker"] → features
- Define feature columns:
- open, high, low, close, volume
- net_sentiment, mean_score, text_count
- returns_1h (pct_change)
- volatility_6h (rolling std)
- Handle missing values (fill or drop)
-🔹 2. Build Sliding Window Dataset
- Set WINDOW = 24
- Loop over dataset to construct:
- X: shape (samples, 24, 10)
- y: binary label (1 if next return > 0 else 0)
- Convert X, y to NumPy arrays
- Split dataset (NO shuffle):
- 70% Train
- 15% Validation
- 15% Test
-🔹 3. PyTorch Dataset & DataLoader
- Create custom Dataset class
- Create DataLoader for:
- Train
- Validation
- Test
-🔹 4. Define Models
-Model 1 — Vanilla RNN
- nn.RNN(input_size=10, hidden_size=64, num_layers=2, dropout=0.1)
- Add Linear(64 → 1)
- Add Sigmoid
-Model 2 — LSTM
- nn.LSTM(input_size=10, hidden_size=128, num_layers=2, dropout=0.2)
- Add Linear(128 → 1)
- Add Sigmoid
-Model 3 — GRU
- nn.GRU(input_size=10, hidden_size=128, num_layers=2, dropout=0.2)
- Add Linear(128 → 1)
- Add Sigmoid
-🔹 5. Training Setup (Shared for All Models)
- Loss: BCELoss
- Optimizer: Adam
- Epochs: 30
- Implement Early Stopping:
- Monitor val_f1
- Patience = 5
- Save best model
-🔹 6. Training Loop (Reusable Function)
- Loop over epochs:
- Train phase:
- Forward pass
- Compute loss
- Backpropagation
- Optimizer step
- Validation phase:
- Compute val_accuracy
- Compute val_f1
- Apply early stopping logic
-🔹 7. MLflow Tracking
+🚀 Full-Stack ML Serving App TODO
+🎯 Objective
 
-For EACH model:
+Build a demo-ready ML prediction system:
 
- Wrap training in mlflow.start_run()
- Log parameters:
- model name
- learning rate
- window size
- hidden size
- Log metrics per epoch:
- val_accuracy
- val_f1
- Log final model:
- mlflow.pytorch.log_model
- Log artifacts (e.g., test set)
-🔹 8. Evaluation
- Use sklearn.metrics to compute:
- Accuracy
- F1-score
- Precision
- Recall
- AUC-ROC
- (Optional regression head):
- RMSE
- MAE
- MAPE
-🔹 9. Final Comparison Table
- After training all models, print:
-Model | Accuracy | F1 | RMSE (if available)
-------------------------------------------
-RNN   |   ...    | ...| ...
-LSTM  |   ...    | ...| ...
-GRU   |   ...    | ...| ...
-🔹 10. Deliverables
- Trained models (saved)
- MLflow experiment logs
- Final comparison table
- Clean, reusable training pipeline
+Backend: FastAPI (serve models + data)
+Frontend: React (Vite + TailwindCSS)
+Goal: Show predictions, sentiment trends, and model comparison
+📦 Project Structure
+project/
+│── data/
+│   ├── processed/
+│   │   └── sentiment_hourly.parquet
+│
+│── models/
+│   └── (MLflow or saved models)
+│
+│── src/
+│   ├── api/
+│   │   ├── main.py
+│   │   ├── routes/
+│   │   │   ├── predict.py
+│   │   │   ├── sentiment.py
+│   │   │   ├── models.py
+│   │   │   └── retrain.py
+│   │   ├── services/
+│   │   │   ├── model_loader.py
+│   │   │   ├── feature_pipeline.py
+│   │   │   └── sentiment_loader.py
+│   │   └── utils/
+│
+│── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── Home.jsx
+│   │   │   ├── Sentiment.jsx
+│   │   │   └── Models.jsx
+│   │   ├── components/
+│   │   └── api/
+│   │       └── client.js
+│
+│── TODO.md
+⚙️ Backend — FastAPI
+🔧 Setup
+ Install dependencies:
+fastapi
+uvicorn
+pandas
+torch
+mlflow
+python-multipart
+ Enable CORS for frontend:
+origins = ["http://localhost:3000"]
+🧠 Model Loading
+ Create model_loader.py
+ Load best model:
+mlflow.pytorch.load_model("models:/LSTM/Production")
+ Cache model in memory (avoid reload per request)
+📊 Feature Pipeline
+ Create feature_pipeline.py
+ Implement:
+def get_latest_features(ticker: str) -> list:
+ Logic:
+Load latest 24-hour window
+Ensure shape matches model input
+Return feature array
+🔮 Endpoint: /predict/{ticker}
+ Create route in predict.py
+ Steps:
+Load features
+Convert to tensor
+Run model
+Compute:
+direction: UP | DOWN
+confidence
+ Response format:
+{
+  "ticker": "AAPL",
+  "direction": "UP",
+  "confidence": 0.73,
+  "model": "LSTM"
+}
+📈 Endpoint: /sentiment/{ticker}
+ Create sentiment_loader.py
+ Load:
+sentiment_hourly.parquet
+ Filter:
+last 24 hours
+specific ticker
+ Return JSON array
+🤖 Endpoint: /models
+ Create models.py
+ Fetch from MLflow:
+model name
+run_id
+val_accuracy
+F1 / RMSE
+ Return list:
+[
+  {"name": "LSTM", "accuracy": 0.91, "f1": 0.89},
+  {"name": "GRU", "accuracy": 0.88, "f1": 0.85}
+]
+🔁 Endpoint: /retrain (Admin only)
+ Create retrain.py
+ Trigger:
+Airflow DAG OR
+local training function
+ Keep simple:
+No auth → just comment "admin only"
+🧪 Backend Testing
+ Test endpoints via:
+Postman / curl
+ Validate:
+JSON structure
+Model inference works
+No crashes on bad ticker
+🎨 Frontend — React (Vite + Tailwind)
+⚙️ Setup
+ Create app:
+npm create vite@latest frontend
+ Install:
+axios
+react-router-dom
+recharts
+tailwindcss
+🌐 API Client
+ Create api/client.js
+const API = "http://localhost:8000";
+ Functions:
+getPrediction(ticker)
+getSentiment(ticker)
+getModels()
+🏠 Page 1 — Home (Prediction)
+ Input field (ticker)
+ Button → call /predict
+ Display:
+Direction badge:
+🟢 UP
+🔴 DOWN
+Confidence %
+Model name
+Timestamp
+📈 Page 2 — Sentiment Explorer
+ Call /sentiment
+ Plot using Recharts:
+LineChart → net_sentiment
+Optional:
+Bar chart → pos/neg/neu counts
+ X-axis: time (hour)
+ Y-axis: sentiment score
+📊 Page 3 — Model Comparison
+ Call /models
+ Display table:
+Model name
+Accuracy
+F1
+RMSE
+ Highlight best model:
+Green background
+🎯 UI Requirements
+ Keep UI minimal
+ No authentication
+ Clean layout using Tailwind
+ Focus on functionality over design
+🔗 Integration
+ Ensure frontend connects to backend
+ Handle loading states
+ Handle API errors gracefully
+🚀 Final Deliverables
+ Working FastAPI server
+ Functional React app (3 pages)
+ Model inference working
+ Sentiment visualization working
+ Models comparison visible
+🧠 Agent Instructions
+Do NOT over-engineer
+Prioritize working demo over perfection
+Keep components small and reusable
+Ensure each backend function is testable
+Avoid unnecessary abstractions
