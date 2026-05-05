@@ -1,27 +1,4 @@
-Summary: chore(repo): Commit workspace changes
+chore: update training pipeline and development scripts
 
-What changed:
-- Consolidated recent updates across project: code, docs, and tests.
-
-Details:
-- Brief description of functional changes (update as needed).
-- Files touched: (list the main files you want to call out).
-
-Testing:
-- Include brief summary of tests run or verification steps.
-
-Notes:
-- If this commit contains multiple unrelated changes, consider splitting into multiple commits with focused, atomic messages.
-
-Usage:
-1) Review and edit this message as needed.
-2) Stage and commit using:
-   git add -A
-   git commit -F COMMIT_MESSAGE.txt
-3) Push to your current branch:
-   git push origin $(git branch --show-current)
-
-Optional longer form (if you prefer interactive commit message):
-   git add -A
-   git commit
-   # then paste a detailed message when the editor opens
+- Refactor run_training.py with improved argument parsing and pipeline integration
+- Add automated commit and push script (git_commit_and_push.ps1) for streamlined repo management
