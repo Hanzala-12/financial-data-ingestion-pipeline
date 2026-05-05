@@ -8,6 +8,7 @@ import mlflow
 from .pipeline import (
     DEFAULT_PRICE_DIR,
     DEFAULT_SENTIMENT_PATH,
+    FEATURE_COLUMNS,
     TrainingConfig,
     build_sliding_windows,
     create_dataloaders,
@@ -74,21 +75,61 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
 
+    print("="*60)
+    print("ENHANCED TRAINING PIPELINE")
+    print("="*60)
+    print(f"Window size: {args.window}")
+    print(f"Batch size: {args.batch_size}")
+    print(f"Epochs: {args.epochs}")
+    print(f"Learning rate: {args.learning_rate}")
+    print("="*60)
+
+    print("\n[1/6] Loading price data...")
     price_df = load_price_data(args.price_dir)
+    print(f"✓ Loaded {len(price_df)} price records")
+    
+    print("\n[2/6] Loading sentiment data...")
     sentiment_ts = load_sentiment_data(args.sentiment_path)
+    print(f"✓ Loaded {len(sentiment_ts)} sentiment records")
+    
+    print("\n[3/6] Preparing features with technical indicators...")
     feature_frame = prepare_feature_frame(
         price_df,
         sentiment_ts,
         missing_strategy=args.missing_strategy,
+        add_technical_indicators=True,
     )
+    print(f"✓ Feature frame shape: {feature_frame.shape}")
+    print(f"✓ Total features: {len(FEATURE_COLUMNS)}")
 
-    features, labels = build_sliding_windows(
+    print("\n[4/6] Building sliding windows...")
+    features, labels, scaler = build_sliding_windows(
         feature_frame,
         window_size=args.window,
+        normalize=True,
     )
     if len(features) == 0:
         raise ValueError("No sliding window samples were generated")
+    
+    print(f"✓ Original samples: {len(features)}")
+    print(f"✓ Feature shape: {features.shape}")
+    
+    # Generate synthetic data if we have less than 5000 samples
+    if len(features) < 5000:
+        print("\n[5/6] Generating synthetic data...")
+        from src.features.synthetic_data import generate_synthetic_data
+        
+        features, labels = generate_synthetic_data(
+            features,
+            labels,
+            target_size=10000,
+            methods=['noise', 'time_warp', 'window_slice', 'magnitude_scale']
+        )
+        print(f"✓ Total samples after augmentation: {len(features)}")
+    else:
+        print(f"\n[5/6] Skipping synthetic data generation (have {len(features)} samples)")
 
+    print("\n[6/6] Splitting dataset and creating dataloaders...")
     train, val, test = split_dataset(features, labels)
     loaders = create_dataloaders(
         train,
@@ -96,6 +137,7 @@ def main() -> None:
         test,
         batch_size=args.batch_size,
     )
+    print(f"✓ Train: {len(train[0])}, Val: {len(val[0])}, Test: {len(test[0])}")
 
     if not args.disable_mlflow:
         mlflow.set_experiment(args.experiment_name)
@@ -108,6 +150,10 @@ def main() -> None:
         patience=args.patience,
     )
 
+    print("\n" + "="*60)
+    print("STARTING MODEL TRAINING")
+    print("="*60)
+    
     results = run_all_models(
         loaders,
         config,
@@ -116,7 +162,11 @@ def main() -> None:
         mlflow_enabled=not args.disable_mlflow,
     )
 
+    print("\n" + "="*60)
+    print("TRAINING COMPLETE - FINAL RESULTS")
+    print("="*60)
     print(format_comparison_table(results))
+    print("="*60)
 
 
 if __name__ == "__main__":

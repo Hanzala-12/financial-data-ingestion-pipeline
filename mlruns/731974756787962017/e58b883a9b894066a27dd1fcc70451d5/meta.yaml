@@ -1,0 +1,15 @@
+artifact_uri: file:///E:/ml/mlruns/731974756787962017/e58b883a9b894066a27dd1fcc70451d5/artifacts
+end_time: 1777972374423
+entry_point_name: ''
+experiment_id: '731974756787962017'
+lifecycle_stage: active
+run_id: e58b883a9b894066a27dd1fcc70451d5
+run_name: RNN
+run_uuid: e58b883a9b894066a27dd1fcc70451d5
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1777972257906
+status: 3
+tags: []
+user_id: pip

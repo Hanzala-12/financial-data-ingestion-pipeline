@@ -1,0 +1,15 @@
+artifact_uri: file:///E:/ml/mlruns/731974756787962017/7c861376cb2c41d8ba98cf121c653064/artifacts
+end_time: 1777558549586
+entry_point_name: ''
+experiment_id: '731974756787962017'
+lifecycle_stage: active
+run_id: 7c861376cb2c41d8ba98cf121c653064
+run_name: LSTM
+run_uuid: 7c861376cb2c41d8ba98cf121c653064
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1777558207236
+status: 3
+tags: []
+user_id: pip

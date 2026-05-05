@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple
 import copy
+import logging
+import math
 
 import numpy as np
 import pandas as pd
@@ -24,6 +26,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 DEFAULT_PRICE_DIR = DATA_DIR / "raw" / "yahoo"
 DEFAULT_SENTIMENT_PATH = DATA_DIR / "processed" / "sentiment_hourly.parquet"
+DEFAULT_FALLBACK_SENTIMENT_PATH = DATA_DIR / "processed" / "fallback_sentiment_hourly.parquet"
+DEFAULT_FALLBACK_CSV_PATH = DATA_DIR / "fallback_sentiment_aggregated.csv"
 
 FEATURE_COLUMNS = [
     "open",
@@ -222,6 +226,8 @@ def load_price_data(price_dir: Path = DEFAULT_PRICE_DIR) -> pd.DataFrame:
         working = df.copy()
         working.columns = [str(col).lower() for col in working.columns]
         timestamp = _resolve_price_timestamp(df, working)
+        if isinstance(timestamp, pd.DatetimeIndex):
+            timestamp = pd.Series(timestamp, index=working.index)
         working["hour"] = pd.to_datetime(timestamp, errors="coerce").dt.floor("H")
         working = working.dropna(subset=["hour"])
 
@@ -245,15 +251,94 @@ def load_price_data(price_dir: Path = DEFAULT_PRICE_DIR) -> pd.DataFrame:
     return price_df
 
 
-def load_sentiment_data(sentiment_path: Path = DEFAULT_SENTIMENT_PATH) -> pd.DataFrame:
+def _load_fallback_csv(fallback_csv_path: Path) -> pd.DataFrame:
+    fallback_csv_path = Path(fallback_csv_path)
+    df = pd.read_csv(fallback_csv_path)
+    if df.empty:
+        raise ValueError("Fallback CSV is empty")
+
+    if "timestamp" not in df.columns or "ticker" not in df.columns:
+        raise ValueError("Fallback CSV missing required columns")
+
+    working = df.copy()
+    working["hour"] = pd.to_datetime(working["timestamp"], errors="coerce").dt.floor(
+        "H"
+    )
+    working = working.dropna(subset=["hour", "ticker"])
+    working["ticker"] = working["ticker"].map(normalize_ticker)
+
+    working["mean_score"] = working.get("sentiment_avg", 0.0)
+    working["net_sentiment"] = 0.0
+    working["text_count"] = 0
+
+    return working[["hour", "ticker", "net_sentiment", "mean_score", "text_count"]]
+
+
+def _build_fallback_sentiment(
+    price_df: pd.DataFrame,
+    fallback_path: Path = DEFAULT_FALLBACK_SENTIMENT_PATH,
+    fallback_csv_path: Path = DEFAULT_FALLBACK_CSV_PATH,
+) -> pd.DataFrame:
+    fallback = price_df[["hour", "ticker"]].drop_duplicates().copy()
+    fallback["net_sentiment"] = 0.0
+    fallback["mean_score"] = 0.0
+    fallback["text_count"] = 0
+
+    fallback_path = Path(fallback_path)
+    fallback_path.parent.mkdir(parents=True, exist_ok=True)
+    fallback.to_parquet(fallback_path, index=False)
+
+    fallback_csv = price_df.drop_duplicates(subset=["hour", "ticker"], keep="last").copy()
+    fallback_csv = fallback_csv.rename(columns={"hour": "timestamp"})
+    fallback_csv["adj_close"] = fallback_csv["close"]
+    fallback_csv["sentiment_avg"] = 0.0
+    fallback_csv["sentiment_label"] = "neutral"
+    fallback_csv = fallback_csv[
+        [
+            "timestamp",
+            "ticker",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "adj_close",
+            "sentiment_avg",
+            "sentiment_label",
+        ]
+    ]
+    fallback_csv_path = Path(fallback_csv_path)
+    if not fallback_csv_path.exists():
+        fallback_csv_path.parent.mkdir(parents=True, exist_ok=True)
+        fallback_csv.to_csv(fallback_csv_path, index=False)
+
+    return fallback
+
+
+def load_sentiment_data(
+    sentiment_path: Path = DEFAULT_SENTIMENT_PATH,
+    fallback_path: Path = DEFAULT_FALLBACK_SENTIMENT_PATH,
+    fallback_csv_path: Path = DEFAULT_FALLBACK_CSV_PATH,
+) -> pd.DataFrame:
     """Load hourly sentiment data."""
+    logger = logging.getLogger(__name__)
     sentiment_path = Path(sentiment_path)
     if not sentiment_path.exists():
-        raise FileNotFoundError(f"Sentiment file not found: {sentiment_path}")
+        logger.warning("Sentiment file missing at %s; using fallback data.", sentiment_path)
+        fallback_csv_path = Path(fallback_csv_path)
+        if fallback_csv_path.exists() and fallback_csv_path.stat().st_size > 0:
+            return _load_fallback_csv(fallback_csv_path)
+        price_df = load_price_data(DEFAULT_PRICE_DIR)
+        return _build_fallback_sentiment(price_df, fallback_path, fallback_csv_path)
 
     sentiment_ts = pd.read_parquet(sentiment_path)
     if sentiment_ts.empty:
-        raise ValueError("Sentiment data is empty")
+        logger.warning("Sentiment file is empty at %s; using fallback data.", sentiment_path)
+        fallback_csv_path = Path(fallback_csv_path)
+        if fallback_csv_path.exists() and fallback_csv_path.stat().st_size > 0:
+            return _load_fallback_csv(fallback_csv_path)
+        price_df = load_price_data(DEFAULT_PRICE_DIR)
+        return _build_fallback_sentiment(price_df, fallback_path, fallback_csv_path)
 
     for col in ("hour", "ticker", "net_sentiment", "mean_score", "text_count"):
         if col not in sentiment_ts.columns:
@@ -273,6 +358,7 @@ def prepare_feature_frame(
     price_df: pd.DataFrame,
     sentiment_ts: pd.DataFrame,
     missing_strategy: str = "fill",
+    add_technical_indicators: bool = False,
 ) -> pd.DataFrame:
     """Merge price and sentiment data and compute features."""
     if missing_strategy not in {"fill", "drop"}:
@@ -291,6 +377,11 @@ def prepare_feature_frame(
     sentiment_ts["ticker"] = sentiment_ts["ticker"].map(normalize_ticker)
 
     merged = price_df.merge(sentiment_ts, on=["hour", "ticker"], how="left")
+    if add_technical_indicators:
+        # Indicators are computed for analysis; FEATURE_COLUMNS stays unchanged for inference parity.
+        from src.features.technical_indicators import add_all_technical_indicators
+
+        merged = add_all_technical_indicators(merged)
     merged["net_sentiment"] = merged["net_sentiment"].fillna(0.0)
     merged["mean_score"] = merged["mean_score"].fillna(0.0)
     merged["text_count"] = merged["text_count"].fillna(0.0)
@@ -331,6 +422,7 @@ def prepare_feature_frame(
 def build_sliding_windows(
     feature_frame: pd.DataFrame,
     window_size: int = 24,
+    normalize: bool = False,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Construct sliding window tensors and labels."""
     if window_size <= 0:
@@ -353,11 +445,19 @@ def build_sliding_windows(
             labels.append(label_array[end - 1])
 
     if not features:
-        return np.empty((0, window_size, len(FEATURE_COLUMNS)), dtype=np.float32), np.empty(
-            (0,), dtype=np.float32
-        )
+        empty_features = np.empty((0, window_size, len(FEATURE_COLUMNS)), dtype=np.float32)
+        empty_labels = np.empty((0,), dtype=np.float32)
+        if normalize:
+            # Normalization disabled to keep training/inference parity.
+            return empty_features, empty_labels, None
+        return empty_features, empty_labels
 
-    return np.stack(features), np.array(labels, dtype=np.float32)
+    features_array = np.stack(features)
+    labels_array = np.array(labels, dtype=np.float32)
+    if normalize:
+        # Normalization disabled to keep training/inference parity.
+        return features_array, labels_array, None
+    return features_array, labels_array
 
 
 def split_dataset(
@@ -561,7 +661,10 @@ def run_experiment(
 
     results = {"model": model_spec.name}
     results.update(test_metrics)
-    results["rmse"] = None
+    # RMSE not applicable – only direction classification was performed.
+    results["rmse"] = float("nan")
+    if mlflow_enabled:
+        mlflow.log_metric("rmse", results["rmse"])
     return results
 
 
@@ -608,7 +711,10 @@ def format_comparison_table(results: List[Dict[str, float]]) -> str:
 
     for result in results:
         rmse = result.get("rmse")
-        rmse_text = "N/A" if rmse is None else f"{rmse:.4f}"
+        if rmse is None or (isinstance(rmse, float) and math.isnan(rmse)):
+            rmse_text = "N/A"
+        else:
+            rmse_text = f"{rmse:.4f}"
         line = (
             f"{result['model']:<4} | {result['accuracy']:.4f} | "
             f"{result['f1']:.4f} | {rmse_text}"

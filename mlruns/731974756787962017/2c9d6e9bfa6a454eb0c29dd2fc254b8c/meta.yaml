@@ -1,0 +1,15 @@
+artifact_uri: file:///E:/ml/mlruns/731974756787962017/2c9d6e9bfa6a454eb0c29dd2fc254b8c/artifacts
+end_time: 1777559054679
+entry_point_name: ''
+experiment_id: '731974756787962017'
+lifecycle_stage: active
+run_id: 2c9d6e9bfa6a454eb0c29dd2fc254b8c
+run_name: GRU
+run_uuid: 2c9d6e9bfa6a454eb0c29dd2fc254b8c
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1777558549609
+status: 4
+tags: []
+user_id: pip
