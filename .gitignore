@@ -3,6 +3,9 @@
 
 # Data files (tracked by DVC)
 /data/raw/
+data/processed/*.parquet
+data/processed/*.npz
+data/processed/*.json
 
 # Python
 __pycache__/
@@ -14,9 +17,21 @@ __pycache__/
 /data/raw/.dvc/
 
 venv/
+.venv/
 
 .coverage
+
+# Generated ML artifacts
+artifacts/
+mlruns/
+models/*.pt
+
+# Airflow / local runtime
+logs/
+*.log
 
 # Frontend
 frontend/node_modules/
 frontend/.vite/
+/models
+/artifacts

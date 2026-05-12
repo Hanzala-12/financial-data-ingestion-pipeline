@@ -210,6 +210,13 @@ def _resolve_price_timestamp(df: pd.DataFrame, working: pd.DataFrame) -> pd.Seri
     raise ValueError("Unable to resolve timestamp column in price data")
 
 
+def _to_naive_hour(values: pd.Series) -> pd.Series:
+    """Convert timestamp-like values to timezone-naive hourly buckets."""
+    return pd.to_datetime(values, errors="coerce", utc=True).dt.tz_convert(None).dt.floor(
+        "H"
+    )
+
+
 def load_price_data(price_dir: Path = DEFAULT_PRICE_DIR) -> pd.DataFrame:
     """Load Yahoo price data from parquet files."""
     price_dir = Path(price_dir)
@@ -228,7 +235,7 @@ def load_price_data(price_dir: Path = DEFAULT_PRICE_DIR) -> pd.DataFrame:
         timestamp = _resolve_price_timestamp(df, working)
         if isinstance(timestamp, pd.DatetimeIndex):
             timestamp = pd.Series(timestamp, index=working.index)
-        working["hour"] = pd.to_datetime(timestamp, errors="coerce").dt.floor("H")
+        working["hour"] = _to_naive_hour(timestamp)
         working = working.dropna(subset=["hour"])
 
         if "ticker" in working.columns:
@@ -261,9 +268,7 @@ def _load_fallback_csv(fallback_csv_path: Path) -> pd.DataFrame:
         raise ValueError("Fallback CSV missing required columns")
 
     working = df.copy()
-    working["hour"] = pd.to_datetime(working["timestamp"], errors="coerce").dt.floor(
-        "H"
-    )
+    working["hour"] = _to_naive_hour(working["timestamp"])
     working = working.dropna(subset=["hour", "ticker"])
     working["ticker"] = working["ticker"].map(normalize_ticker)
 
@@ -345,9 +350,7 @@ def load_sentiment_data(
             raise ValueError(f"Missing sentiment column: {col}")
 
     sentiment_ts = sentiment_ts.copy()
-    sentiment_ts["hour"] = pd.to_datetime(sentiment_ts["hour"], errors="coerce").dt.floor(
-        "H"
-    )
+    sentiment_ts["hour"] = _to_naive_hour(sentiment_ts["hour"])
     sentiment_ts = sentiment_ts.dropna(subset=["hour"])
     sentiment_ts["ticker"] = sentiment_ts["ticker"].map(normalize_ticker)
 
@@ -365,14 +368,12 @@ def prepare_feature_frame(
         raise ValueError("missing_strategy must be 'fill' or 'drop'")
 
     price_df = price_df.copy()
-    price_df["hour"] = pd.to_datetime(price_df["hour"], errors="coerce").dt.floor("H")
+    price_df["hour"] = _to_naive_hour(price_df["hour"])
     price_df = price_df.dropna(subset=["hour", "ticker"])
     price_df["ticker"] = price_df["ticker"].map(normalize_ticker)
 
     sentiment_ts = sentiment_ts.copy()
-    sentiment_ts["hour"] = pd.to_datetime(sentiment_ts["hour"], errors="coerce").dt.floor(
-        "H"
-    )
+    sentiment_ts["hour"] = _to_naive_hour(sentiment_ts["hour"])
     sentiment_ts = sentiment_ts.dropna(subset=["hour", "ticker"])
     sentiment_ts["ticker"] = sentiment_ts["ticker"].map(normalize_ticker)
 
@@ -410,11 +411,21 @@ def prepare_feature_frame(
         (merged["future_return"] > 0).astype(float),
     )
 
+    merged["trend_target"] = merged["future_return"]
+    merged["future_abs_return"] = merged.groupby("ticker")["returns_1h"].shift(-1).abs()
+    merged["volatility_target"] = np.where(
+        merged["future_abs_return"].isna(),
+        np.nan,
+        (merged["future_abs_return"] >= 0.02).astype(float),
+    )
+
     if missing_strategy == "drop":
-        merged = merged.dropna(subset=FEATURE_COLUMNS + ["label"])
+        merged = merged.dropna(
+            subset=FEATURE_COLUMNS + ["label", "trend_target", "volatility_target"]
+        )
     else:
         merged[FEATURE_COLUMNS] = merged[FEATURE_COLUMNS].fillna(0.0)
-        merged = merged.dropna(subset=["label"])
+        merged = merged.dropna(subset=["label", "trend_target", "volatility_target"])
 
     return merged
 
@@ -423,10 +434,14 @@ def build_sliding_windows(
     feature_frame: pd.DataFrame,
     window_size: int = 24,
     normalize: bool = False,
+    target_column: str = "label",
 ) -> Tuple[np.ndarray, np.ndarray]:
     """Construct sliding window tensors and labels."""
     if window_size <= 0:
         raise ValueError("window_size must be positive")
+
+    if target_column not in feature_frame.columns:
+        raise ValueError(f"target_column '{target_column}' not found in feature frame")
 
     features: List[np.ndarray] = []
     labels: List[float] = []
@@ -437,7 +452,7 @@ def build_sliding_windows(
             continue
 
         feature_array = group[FEATURE_COLUMNS].to_numpy(dtype=np.float32)
-        label_array = group["label"].to_numpy(dtype=np.float32)
+        label_array = group[target_column].to_numpy(dtype=np.float32)
 
         for start in range(0, len(group) - window_size + 1):
             end = start + window_size

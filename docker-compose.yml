@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+    command: uvicorn src.api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.14.1
+    profiles: ["mlops"]
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlruns
+      - ./artifacts:/artifacts
+    command: >-
+      mlflow server
+      --backend-store-uri file:/mlruns
+      --default-artifact-root /artifacts
+      --host 0.0.0.0
+      --port 5000

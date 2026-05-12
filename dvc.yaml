@@ -1,11 +1,38 @@
-# DVC pipeline configuration
-# Note: data/raw/ is tracked separately via dvc add
-# stages:
-#   ingest:
-#     cmd: python src/ingestion/run_all.py
-#     deps:
-#       - src/ingestion/
-#     outs:
-#       - data/raw/:
-#           cache: true
-#           persist: false
+stages:
+  ingest:
+    cmd: python -m src.ingestion.run_all
+    deps:
+      - src/ingestion
+    outs:
+      - data/raw
+
+  sentiment:
+    cmd: python -m src.sentiment.processor
+    deps:
+      - src/sentiment
+      - data/raw
+    outs:
+      - data/processed/sentiment_hourly.parquet
+
+  features:
+    cmd: python -m src.features.build_ts_dataset
+    deps:
+      - src/features
+      - src/market_direction
+      - data/raw
+      - data/processed/sentiment_hourly.parquet
+    outs:
+      - data/processed/market_feature_frame.parquet
+      - data/processed/time_series_sequences.npz
+      - data/processed/time_series_dataset.json
+
+  train:
+    cmd: python -m src.train.train_models
+    deps:
+      - src/train
+      - src/market_direction
+      - data/processed/market_feature_frame.parquet
+      - data/processed/time_series_sequences.npz
+    outs:
+      - models
+      - artifacts

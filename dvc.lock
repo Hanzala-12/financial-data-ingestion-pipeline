@@ -1,0 +1,101 @@
+schema: '2.0'
+stages:
+  ingest:
+    cmd: python -m src.ingestion.run_all
+    deps:
+    - path: src/ingestion
+      hash: md5
+      md5: 91d7dc32d71e7a4d108577dac2954eb2.dir
+      size: 39465
+      nfiles: 16
+    outs:
+    - path: data/raw
+      hash: md5
+      md5: 98b16aac7b637d4dbb4fc90015d75648.dir
+      size: 75424
+      nfiles: 3
+  sentiment:
+    cmd: python -m src.sentiment.processor
+    deps:
+    - path: data/raw
+      hash: md5
+      md5: 98b16aac7b637d4dbb4fc90015d75648.dir
+      size: 75424
+      nfiles: 3
+    - path: src/sentiment
+      hash: md5
+      md5: f6ed1b64c9984a800ff6e1a19d500dab.dir
+      size: 40562
+      nfiles: 15
+    outs:
+    - path: data/processed/sentiment_hourly.parquet
+      hash: md5
+      md5: 08bc4a339e009eeaf69cab3970c0edf0
+      size: 3856
+  features:
+    cmd: python -m src.features.build_ts_dataset
+    deps:
+    - path: data/processed/sentiment_hourly.parquet
+      hash: md5
+      md5: 08bc4a339e009eeaf69cab3970c0edf0
+      size: 3856
+    - path: data/raw
+      hash: md5
+      md5: 98b16aac7b637d4dbb4fc90015d75648.dir
+      size: 75424
+      nfiles: 3
+    - path: src/features
+      hash: md5
+      md5: d914f436566423384dacc2073afb8b66.dir
+      size: 30798
+      nfiles: 7
+    - path: src/market_direction
+      hash: md5
+      md5: 18a0574cc5e307c2cf9b6b2c6a96393d.dir
+      size: 75485
+      nfiles: 11
+    outs:
+    - path: data/processed/market_feature_frame.parquet
+      hash: md5
+      md5: c1017a71f6bc83b18e09c073c4c7780f
+      size: 429230
+    - path: data/processed/time_series_dataset.json
+      hash: md5
+      md5: 28e4066d251c094d626bfd34c90bdb85
+      size: 869
+    - path: data/processed/time_series_sequences.npz
+      hash: md5
+      md5: de27514fc9bb0c11ebb7aaa5221ebffa
+      size: 41462
+  train:
+    cmd: python -m src.train.train_models
+    deps:
+    - path: data/processed/market_feature_frame.parquet
+      hash: md5
+      md5: c1017a71f6bc83b18e09c073c4c7780f
+      size: 429230
+    - path: data/processed/time_series_sequences.npz
+      hash: md5
+      md5: de27514fc9bb0c11ebb7aaa5221ebffa
+      size: 41462
+    - path: src/market_direction
+      hash: md5
+      md5: 18a0574cc5e307c2cf9b6b2c6a96393d.dir
+      size: 75485
+      nfiles: 11
+    - path: src/train
+      hash: md5
+      md5: 8b4fc6de4891508c8b9e919b599284ae.dir
+      size: 17239
+      nfiles: 4
+    outs:
+    - path: artifacts
+      hash: md5
+      md5: cc1f73c960e5d98ca5dee66687ae5d3e.dir
+      size: 29558
+      nfiles: 11
+    - path: models
+      hash: md5
+      md5: 15fc7570a7fb0e03a10e961efcef5489.dir
+      size: 3130218
+      nfiles: 5

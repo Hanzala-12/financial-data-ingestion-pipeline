@@ -1,4 +1,0 @@
-chore: update training pipeline and development scripts
-
-- Refactor run_training.py with improved argument parsing and pipeline integration
-- Add automated commit and push script (git_commit_and_push.ps1) for streamlined repo management

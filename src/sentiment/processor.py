@@ -262,3 +262,7 @@ def run_sentiment_pipeline(
     save_parquet(sentiment_ts, Path(output_path))
     logger.info("Saved hourly sentiment data to %s", output_path)
     return sentiment_ts
+
+
+if __name__ == "__main__":
+    run_sentiment_pipeline()

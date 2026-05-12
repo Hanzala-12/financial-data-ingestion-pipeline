@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Market Predictor API</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f1e8;
+        --panel: rgba(255, 255, 255, 0.72);
+        --panel-border: rgba(15, 23, 42, 0.12);
+        --text: #102033;
+        --muted: #586579;
+        --accent: #0f766e;
+        --accent-2: #1d4ed8;
+        --danger: #b42318;
+        --shadow: 0 20px 60px rgba(16, 32, 51, 0.16);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(29, 78, 216, 0.16), transparent 28%),
+          radial-gradient(circle at top right, rgba(15, 118, 110, 0.18), transparent 26%),
+          linear-gradient(180deg, #faf7f1 0%, var(--bg) 100%);
+        min-height: 100vh;
+      }
+      .shell {
+        width: min(1080px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 48px;
+      }
+      .hero {
+        display: grid;
+        gap: 18px;
+        margin-bottom: 24px;
+      }
+      .eyebrow {
+        text-transform: uppercase;
+        letter-spacing: 0.3em;
+        font-size: 0.72rem;
+        color: var(--accent-2);
+        font-weight: 700;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 4vw, 3.5rem);
+        line-height: 1;
+      }
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 24px;
+      }
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(18px);
+        padding: 24px;
+      }
+      label {
+        display: block;
+        font-size: 0.9rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      input, button, textarea {
+        font: inherit;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 1fr auto;
+        gap: 12px;
+        align-items: end;
+      }
+      input {
+        width: 100%;
+        border: 1px solid rgba(15, 23, 42, 0.12);
+        border-radius: 14px;
+        padding: 14px 16px;
+        background: rgba(255, 255, 255, 0.82);
+        color: var(--text);
+      }
+      button {
+        border: 0;
+        border-radius: 14px;
+        padding: 14px 18px;
+        background: linear-gradient(135deg, var(--accent-2), var(--accent));
+        color: white;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 10px 30px rgba(29, 78, 216, 0.25);
+      }
+      button:disabled { opacity: 0.7; cursor: progress; }
+      pre {
+        margin: 0;
+        overflow: auto;
+        background: rgba(16, 32, 51, 0.96);
+        color: #dbeafe;
+        border-radius: 18px;
+        padding: 18px;
+        font-size: 0.92rem;
+        line-height: 1.5;
+      }
+      .status {
+        margin-top: 16px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        font-size: 0.92rem;
+      }
+      .status.error {
+        background: rgba(180, 35, 24, 0.08);
+        color: var(--danger);
+      }
+      .status.ok {
+        background: rgba(15, 118, 110, 0.1);
+        color: var(--accent);
+      }
+      .list {
+        display: grid;
+        gap: 12px;
+        margin-top: 18px;
+      }
+      .chip {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        border-radius: 999px;
+        padding: 8px 12px;
+        background: rgba(255,255,255,0.72);
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        font-size: 0.86rem;
+        width: fit-content;
+      }
+      @media (max-width: 860px) {
+        .grid { grid-template-columns: 1fr; }
+        .row { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="hero">
+        <div class="eyebrow">Market Predictor API</div>
+        <h1>Manual prediction console</h1>
+        <p>Use this page to test the FastAPI backend without the React client. Enter a stock symbol and date, then call the `/predict` endpoint directly.</p>
+      </div>
+
+      <div class="grid">
+        <section class="card">
+          <form id="predict-form">
+            <div class="row">
+              <div>
+                <label for="ticker">Ticker</label>
+                <input id="ticker" name="ticker" value="AAPL" placeholder="AAPL" />
+              </div>
+              <div>
+                <label for="date">Date</label>
+                <input id="date" name="date" type="date" />
+              </div>
+              <button id="submit" type="submit">Predict</button>
+            </div>
+          </form>
+          <div id="message" class="status ok" style="display:none;"></div>
+          <div style="margin-top:18px;">
+            <label>Response</label>
+            <pre id="output">{}</pre>
+          </div>
+        </section>
+
+        <aside class="card">
+          <div class="chip">GET /health</div>
+          <div class="chip" style="margin-top:10px;">GET /predict?ticker=AAPL&date=2026-05-09</div>
+          <div class="chip" style="margin-top:10px;">GET /predict/AAPL</div>
+          <div class="list" style="margin-top:18px;">
+            <p><strong>Notes</strong></p>
+            <p>The backend reads the latest feature window from `data/raw/yahoo/` and `data/processed/sentiment_hourly.parquet`.</p>
+            <p>If those files are missing, the API will return a helpful error message rather than crashing.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById("predict-form");
+      const tickerInput = document.getElementById("ticker");
+      const dateInput = document.getElementById("date");
+      const output = document.getElementById("output");
+      const message = document.getElementById("message");
+      const submit = document.getElementById("submit");
+
+      function showMessage(text, isError = false) {
+        message.textContent = text;
+        message.className = `status ${isError ? "error" : "ok"}`;
+        message.style.display = "block";
+      }
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const ticker = tickerInput.value.trim().toUpperCase();
+        const date = dateInput.value;
+        if (!ticker) {
+          showMessage("Ticker is required.", true);
+          return;
+        }
+
+        submit.disabled = true;
+        showMessage("Request in progress...");
+        try {
+          const params = new URLSearchParams({ ticker });
+          if (date) params.set("date", date);
+          const response = await fetch(`/predict?${params.toString()}`);
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || "Prediction request failed");
+          }
+          output.textContent = JSON.stringify(data, null, 2);
+          showMessage("Prediction complete.");
+        } catch (error) {
+          output.textContent = JSON.stringify({ error: error.message }, null, 2);
+          showMessage(error.message, true);
+        } finally {
+          submit.disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>
